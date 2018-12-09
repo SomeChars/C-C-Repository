@@ -28,7 +28,7 @@ void read_vvod(int args,char *vvod[]) {
 	int trimmed_counter = 0;
 	int flag = 0;
 	if (!strcmp(vvod[1], "-+")) {
-		fopen(vvod[args - 1], "w");
+		filetowrite = fopen(vvod[args - 1], "w");
 	}
 	for (int i = 2;i < args;i++) {
 		if (i == args - 1) {

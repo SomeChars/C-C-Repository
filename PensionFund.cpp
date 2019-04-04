@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <ctime>
+#include <fstream>
 #include "windows.h"
 
 using namespace std;
@@ -50,7 +51,6 @@ public:
 	void changeDegree(int degree) { this->degreeOfDisability = degree; }
 	void changeVeteran(bool vet) { this->veteran = vet; }
 	void changeHero(bool hero) { this->heroOfLabor = hero; }
-	void getMoney() { this->salary -= this->salary*0.15; }
 	void updateAge() {
 		if (this->birthMonth > currentMonth) this->age = currentYear - this->birthYear;
 		else this->age = currentYear - this->birthYear - 1;
@@ -62,19 +62,19 @@ private:
 	string city;
 	float capital;
 	float crisis;
-	vector<Person> pensioners;
-	vector<Person> workers;
+	vector<Person*> pensioners;
+	vector<Person*> workers;
 	float defaultPension;
 public:
-	Fund(vector<Person> people,string city,float capital = 1000000,float crisis = 1.0,float defaultPension = 11000) {
-		vector<Person>::iterator it = people.begin();
+	Fund(vector<Person*> people,string city,float capital = 1000000,float crisis = 1.0,float defaultPension = 11000) {
+		vector<Person*>::iterator it = people.begin();
 		for (;it < people.end();it++) {
-			if (it->getSex() == "Male") {
-				if (it->getAge() >= 65) this->pensioners.push_back((*it));
+			if ((*it)->getSex() == "Male") {
+				if ((*it)->getAge() >= 65) this->pensioners.push_back((*it));
 				else this->workers.push_back((*it));
 			}
 			else {
-				if (it->getAge() >= 60) this->pensioners.push_back((*it));
+				if ((*it)->getAge() >= 60) this->pensioners.push_back((*it));
 				else this->workers.push_back((*it));
 			}
 		}
@@ -83,34 +83,42 @@ public:
 		this->crisis = crisis;
 		this->defaultPension = defaultPension;
 	}
+	float getCapital() {
+		return this->capital;
+	}
+	string getName() {
+		return this->city;
+	}
 	void personBirth(Person p) {
 		cout << p.getName() << " is new here :)" << endl;
 		if (p.getSex() == "Male") {
-			if (p.getAge() >= 65) this->pensioners.push_back(p);
-			else this->workers.push_back(p);
+			if (p.getAge() >= 65) this->pensioners.push_back(&p);
+			else this->workers.push_back(&p);
 		}
 		else {
-			if (p.getAge() >= 60) this->pensioners.push_back(p);
-			else this->workers.push_back(p);
+			if (p.getAge() >= 60) this->pensioners.push_back(&p);
+			else this->workers.push_back(&p);
 		}
 		float pen = this->defaultPension;
-		if (this->capital > 1000000) {
-			if ((capital - 750000) / this->pensioners.size() > 10326) { 
-				if ((capital - 750000) / this->pensioners.size() < 15000) {
-					pen = (capital - 750000) / this->pensioners.size();
-				}
-				else {
-					pen = 15000;
+		if (this->pensioners.size() != 0) {
+			if (this->capital > 1000000) {
+				if ((capital - 750000) / this->pensioners.size() > 10326) {
+					if ((capital - 750000) / this->pensioners.size() < 15000) {
+						pen = (capital - 750000) / this->pensioners.size();
+					}
+					else {
+						pen = 15000;
+					}
 				}
 			}
 		}
 		if (pen > this->defaultPension) this->defaultPension = pen;		
 	}
 	void personDeath(int num) {
-		vector<Person>::iterator it = this->pensioners.begin();
+		vector<Person*>::iterator it = this->pensioners.begin();
 		for (;it < pensioners.end();it++) {
 			if (num == 0) {
-				cout << it->getName() << " is dead :(" << endl;
+				cout << (*it)->getName() << " is dead :(" << endl;
 				this->pensioners.erase(it);
 				return;
 			}
@@ -119,29 +127,35 @@ public:
 		it = this->workers.begin();
 		for (;it < workers.end();it++) {
 			if (num == 0) {
-				cout << it->getName() << " is dead :(" << endl;
+				cout << (*it)->getName() << " is dead :(" << endl;
 				this->workers.erase(it);
 				return;
 			}
 			num--;
 		}
 	}
+	float getCrisis() {
+		return this->crisis;
+	}
 	void givePension() {
+		if (pensioners.size() == 0) return;
 		if (capital < 10326) { 
 			cout << "Oops, collapse in " << this->city << endl;
 			return;
 		}
-		vector<Person>::iterator it = this->pensioners.begin();
-		if (this->capital > 100000) {
-			if (capital / defaultPension > 10326) this->defaultPension = (capital - 50000) / pensioners.size();
+		vector<Person*>::iterator it = this->pensioners.begin();
+		if (this->pensioners.size() != 0) {
+			if (this->capital > 100000) {
+				if (capital / defaultPension > 10326) this->defaultPension = (capital - 50000) / pensioners.size();
+			}
 		}
 		while (it <= this->pensioners.begin() && capital >= 10326) {
 			float pension = this->defaultPension;
-			if (it->isHero()) { pension += 4000; }
-			if (it->isVeteran()) { pension += 3000; }
-			if (it->getDegree() == 1) { pension += 3000; }
-			if (it->getDegree() == 2) { pension += 5000; }
-			if (it->getDegree() == 3) { pension += 7000; }
+			if ((*it)->isHero()) { pension += 4000; }
+			if ((*it)->isVeteran()) { pension += 3000; }
+			if ((*it)->getDegree() == 1) { pension += 3000; }
+			if ((*it)->getDegree() == 2) { pension += 5000; }
+			if ((*it)->getDegree() == 3) { pension += 7000; }
 			if (pension > capital) { 
 				cout << "Oops, not enough money in " <<this->city<< endl;
 				return; 
@@ -156,20 +170,21 @@ public:
 		this->capital -= money;
 	}
 	void updateAges() {
-		vector<Person>::iterator it = this->workers.begin();
+		vector<Person*>::iterator it = this->workers.begin();
 		for (;it < this->workers.end();it++) {
-			it->updateAge();
+			(*it)->updateAge();
 		}
 	}
-	void earnings() {
+	float earnings() {
+		if (pensioners.size() == 0 || workers.size() == 0) return 0;
 		float sum = 0;
-		vector<Person>::iterator it = this->workers.begin();
+		vector<Person*>::iterator it = this->workers.begin();
 		for (;it < this->workers.end();it++) {
-			it->getMoney();
-			this->capital += it->getSalary()*0.25;
-			sum += it->getSalary()*0.25;
+			this->capital += (*it)->getSalary()*0.25;
+			sum += (*it)->getSalary()*0.25;
 		}
 		cout << "Earnings in " << this->city << ": " << sum << endl;
+		return sum;
 	}
 	int getLen() {
 		return this->workers.size() + this->pensioners.size();
@@ -180,69 +195,94 @@ public:
 	void changeCrisis(float crisis) {
 		this->crisis += crisis;
 	}
-	friend class Government;
+};
+
+class PensionMinistry {
+private:
+	vector<Fund*> funds;
+public:
+	PensionMinistry(vector<Fund*> funds, float crisis = 1) {
+		this->funds = funds;
+	}
+	void addFund(Fund* fund) {
+		this->funds.push_back(fund);
+	}
+	float earnings() {
+		float earn = 0;
+		vector<Fund*>::iterator it = this->funds.begin();
+		for (;it < funds.end();it++) {
+			earn += (*it)->earnings();
+		}
+		return earn;
+	}
+	void givePension() {
+		vector<Fund*>::iterator it = this->funds.begin();
+		for (;it < funds.end();it++) {
+			(*it)->givePension();
+		}
+	}
+	void printInfo() {
+		cout << currentMonth << " " << currentYear<<endl;
+		vector<Fund*>::iterator it1 = funds.begin();
+		for (;it1 < funds.end();it1++) {
+			(*it1)->printInfo();
+		}
+	}
 };
 
 class Government {
 private:
-	vector<Fund> funds;
-	float crisis;
+	vector<Fund*> funds;
 public:
-	Government(vector<Fund> funds, float crisis = 1) {
+	Government(vector<Fund*> funds) {
 		this->funds = funds;
-		this->crisis = crisis;
 	}
-	void addFund(Fund fund) {
+	void addFund(Fund* fund) {
 		this->funds.push_back(fund);
+	}
+	float stealMoney() {
+		int sumcap = 0;
+		vector<Fund*>::iterator it = this->funds.begin();
+		for (;it < this->funds.end();it++) {
+			sumcap += (*it)->getCapital();
+		}
+		int stole = 25000 + rand() % 25000;
+		for (it = this->funds.begin();it < this->funds.end();it++) {
+			(*it)->moneyStolen(stole*((*it)->getCapital() / sumcap));
+		}
+		return stole;
 	}
 	void setCrisis() {
 		float crisis = rand() % 20;
 		crisis -= 10;
 		crisis /= 100;
-		cout << crisis << endl;
-		vector<Fund>::iterator it2 = funds.begin();
+		cout <<"Crisis change is: " <<crisis << endl<<endl;
+		vector<Fund*>::iterator it2 = funds.begin();
 		for (;it2 < funds.end();it2++) {
-			it2->changeCrisis(crisis);
+			(*it2)->changeCrisis(crisis);
 		}
 	}
-	void stealMoney() {
-		int sumcap = 0;
-		vector<Fund>::iterator it = this->funds.begin();
-		for (;it < this->funds.end();it++) {
-			sumcap += it->capital;
-		}
-		int stole = 25000 + rand() % 25000;
-		for (it = this->funds.begin();it < this->funds.end();it++) {
-			it->moneyStolen(stole*(it->capital / sumcap));
-		}
+};
+
+class Processes {
+private:
+	vector<Fund*> funds;
+public:
+	Processes(vector<Fund*> funds) {
+		this->funds = funds;
 	}
-	void earnings() {
-		vector<Fund>::iterator it = this->funds.begin();
-		for (;it < funds.end();it++) {
-			it->earnings();
-		}
-	}
-	void givePension() {
-		vector<Fund>::iterator it = this->funds.begin();
-		for (;it < funds.end();it++) {
-			it->givePension();
-		}
+	void addFund(Fund* fund) {
+		this->funds.push_back(fund);
 	}
 	void updateAges() {
-		vector<Fund>::iterator it = funds.begin();
+		vector<Fund*>::iterator it = funds.begin();
 		for (;it < funds.end();it++) {
-			it->updateAges();
-		}
-	}
-	void printInfo() {
-		vector<Fund>::iterator it1 = funds.begin();
-		for (;it1 < funds.end();it1++) {
-			it1->printInfo();
+			(*it)->updateAges();
 		}
 	}
 	void birthAndDeath() {
 		int numfunds = 0;
-		vector<Fund>::iterator it = funds.begin();
+		vector<Fund*>::iterator it = funds.begin();
 		for (;it < funds.end();it++) {
 			numfunds++;
 		}
@@ -268,18 +308,18 @@ public:
 			for (;it < funds.end();it++) {
 				if (forbirth == 0) {
 					Person *p = new Person(to_string(year) + " " + to_string(deathRate), sex, year, month, dis, vet, hero, salary);
-					it->personBirth((*p));
+					(*it)->personBirth((*p));
 				}
 				forbirth--;
 			}
 		}
 		if (deathRate < 5) {
 			int len = 0;
-			vector<Fund>::iterator it1 = funds.begin();
+			vector<Fund*>::iterator it1 = funds.begin();
 			for (;it1 < funds.end();it1++) {
 				if (fordeath == 0) {
-					int ra = rand() % it1->getLen();
-					it1->personDeath(ra);
+					int ra = rand() % (*it1)->getLen();
+					(*it1)->personDeath(ra);
 				}
 				fordeath--;
 			}
@@ -316,24 +356,38 @@ int main()
 	Person p14("N", "Female", 1963, 10, 0, true, false, 90000);
 	Person p15("O", "Female", 1938, 4, 2, false, true, 0);
 	Person p16("P", "Male", 1975, 11, 0, false, false, 48500);
-	vector<Person> msk = { p1,p2,p3,p4 };
-	vector<Person> spb = { p5,p6,p7,p8 };
-	vector<Person> nsk = { p9,p10,p11,p12 };
-	vector<Person> ekb = { p13,p14,p15,p16 };
+	vector<Person*> msk = { &p1,&p2,&p3,&p4 };
+	vector<Person*> spb = { &p5,&p6,&p7,&p8 };
+	vector<Person*> nsk = { &p9,&p10,&p11,&p12 };
+	vector<Person*> ekb = { &p13,&p14,&p15,&p16 };
 	Fund fund1(msk, "MSK", 3000000, 1.1);
 	Fund fund2(spb, "SPB", 1600000, 1.05);
 	Fund fund3(nsk, "NSK", 1200000, 1.0);
 	Fund fund4(ekb, "EKB", 1350000, 0.95);
-	vector<Fund> funds = { fund1,fund2,fund3,fund4 };
+	vector<Fund*> funds = { &fund1,&fund2,&fund3,&fund4 };
+	PensionMinistry *pensionMinistry = new PensionMinistry(funds);
 	Government *government = new Government(funds);
+	Processes *processes = new Processes(funds);
+	ofstream outputData;
+	vector<Fund*>::iterator it;
+	outputData.open("F:\\Data.txt");
 	for (int i = 0;i < 120;i++) {
-		government->updateAges();
-		government->earnings();
-		government->birthAndDeath();
-		government->givePension();
-		government->setCrisis();
+		pensionMinistry->printInfo();
+		processes->updateAges();
+		pensionMinistry->earnings();
+		processes->birthAndDeath();
+		pensionMinistry->givePension();
 		government->stealMoney();
-		government->printInfo();
-		Sleep(5000);
+		government->setCrisis();
+		it = funds.begin();
+		for (;it < funds.end();it++) {
+			outputData << currentMonth << "." << currentYear << " " << (*it)->getName() << " "<< (*it)->getCapital() << " " << (*it)->getCrisis() << endl;
+		}
+		currentMonth++;
+		if (currentMonth == 13) {
+			currentYear++;
+			currentMonth = 1;
+		}
+		//Sleep(5000);
 	}
 }
